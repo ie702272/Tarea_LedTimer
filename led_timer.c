@@ -51,16 +51,15 @@
 
 uint8_t state = 0;
 bool stop = true;
-uint8_t contador = 0;
 
 void verde();
 void azul ();
 void rojo ();
 
 void (*Funciones[3]) ()={
-		verde,
-		azul,
-		rojo
+		&verde,
+		&azul,
+		&rojo
 };
 
 
@@ -89,7 +88,7 @@ void (*Funciones[3]) ()={
 
  void PIT0_IRQHandler()
     {
-
+	uint8_t contador = 0;
  	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
  	Funciones[contador];
  	if(1 == state)
@@ -177,20 +176,13 @@ void (*Funciones[3]) ()={
 
     	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
 
-    	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 21000000);
+    	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 2100);
 
     	PIT_StartTimer(PIT, kPIT_Chnl_0);
 
-
-    	/* Force the counter to be placed into memory. */
-    	volatile static int i = 0;
-    	/* Enter an infinite loop, just incrementing a counter. */
-
-
-
         while(1)
         {
-        	Funciones[contador];
+;
         }
 
         return 0 ;
