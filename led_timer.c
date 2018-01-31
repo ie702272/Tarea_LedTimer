@@ -49,7 +49,9 @@
  * @brief   Application entry point.
  */
 
-uint8_t status = 0;
+uint8_t state = 0;
+bool stop = true;
+uint8_t contador = 0;
 
 void verde();
 void azul ();
@@ -64,26 +66,42 @@ void (*Funciones[3]) ()={
 
  void PORTA_IRQHandler()
     {
-    	static uint8_t state = 0;
     	PORT_ClearPinsInterruptFlags(PORTA, 1<<4);
-
-    	GPIO_WritePinOutput(GPIOB,21,state);
     	state = ( 0 == state ) ? 1 : 0;
+
     }
 
  void PORTC_IRQHandler()
      {
-     	static uint8_t state = 0;
      	PORT_ClearPinsInterruptFlags(PORTC, 1<<6);
+     	if(false == stop)
+     	{
+     		PIT_DisableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+     		stop = !stop;
+     	}
+     	else if(true == stop)
+     	{
+     		PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+     		stop = !stop;
+     	}
 
-     	GPIO_WritePinOutput(GPIOB,21,state);
-     	state = ( 0 == state ) ? 1 : 0;
      }
 
  void PIT0_IRQHandler()
     {
- 	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 
+ 	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
+ 	Funciones[contador];
+ 	if(1 == state)
+ 	{
+ 		contador++;
+ 		contador = ( 3 >contador ) ? 0 : contador;
+ 	}
+ 	else if(0 == state)
+ 	{
+ 		contador--;
+ 		contador = ( 0 == contador ) ? 3 : contador;
+ 	}
     }
 
     int main(void)
@@ -172,7 +190,7 @@ void (*Funciones[3]) ()={
 
         while(1)
         {
-            i++ ;
+        	Funciones[contador];
         }
 
         return 0 ;
