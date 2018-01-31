@@ -48,6 +48,20 @@
 /*
  * @brief   Application entry point.
  */
+
+uint8_t status = 0;
+
+void verde();
+void azul ();
+void rojo ();
+
+void (*Funciones[3]) ()={
+		verde,
+		azul,
+		rojo
+};
+
+
  void PORTA_IRQHandler()
     {
     	static uint8_t state = 0;
@@ -55,6 +69,21 @@
 
     	GPIO_WritePinOutput(GPIOB,21,state);
     	state = ( 0 == state ) ? 1 : 0;
+    }
+
+ void PORTC_IRQHandler()
+     {
+     	static uint8_t state = 0;
+     	PORT_ClearPinsInterruptFlags(PORTC, 1<<6);
+
+     	GPIO_WritePinOutput(GPIOB,21,state);
+     	state = ( 0 == state ) ? 1 : 0;
+     }
+
+ void PIT0_IRQHandler()
+    {
+ 	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
+
     }
 
     int main(void)
@@ -121,11 +150,25 @@
 
     	NVIC_EnableIRQ(PORTA_IRQn);
 
+    	pit_config_t pit_config =
+    	{
+    			true
+    	};
+
+    	PIT_Init(PIT, &pit_config);
+
+    	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+
+    	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 21000000);
+
+    	PIT_StartTimer(PIT, kPIT_Chnl_0);
+
+
     	/* Force the counter to be placed into memory. */
     	volatile static int i = 0;
     	/* Enter an infinite loop, just incrementing a counter. */
 
-    	GPIO_WritePinOutput(GPIOB,21,0);
+
 
         while(1)
         {
@@ -134,3 +177,21 @@
 
         return 0 ;
 }
+
+    void verde(){
+    	GPIO_WritePinOutput(GPIOE,26,0);
+    	GPIO_WritePinOutput(GPIOB,22,1);
+    	GPIO_WritePinOutput(GPIOB,21,1);
+    }
+
+    void rojo(){
+        GPIO_WritePinOutput(GPIOE,26,1);
+        GPIO_WritePinOutput(GPIOB,22,0);
+        GPIO_WritePinOutput(GPIOB,21,1);
+        }
+
+    void azul(){
+        GPIO_WritePinOutput(GPIOE,26,1);
+        GPIO_WritePinOutput(GPIOB,22,1);
+        GPIO_WritePinOutput(GPIOB,21,0);
+        }
