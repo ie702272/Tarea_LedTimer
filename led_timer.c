@@ -49,17 +49,21 @@
  * @brief   Application entry point.
  */
 
-uint8_t state = 0;
+#define PIT_SOURCE_CLOCK CLOCK_GetBusClkFreq();
+
+
+uint8_t state = 1;
 bool stop = true;
+uint8_t contador = 0;
 
 void verde();
 void azul ();
 void rojo ();
 
 void (*Funciones[3]) ()={
+		&rojo,
 		&verde,
-		&azul,
-		&rojo
+		&azul
 };
 
 
@@ -75,12 +79,12 @@ void (*Funciones[3]) ()={
      	PORT_ClearPinsInterruptFlags(PORTC, 1<<6);
      	if(false == stop)
      	{
-     		PIT_DisableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+     		EnableIRQ(PIT0_IRQn);
      		stop = !stop;
      	}
      	else if(true == stop)
      	{
-     		PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+     		DisableIRQ(PIT0_IRQn);
      		stop = !stop;
      	}
 
@@ -88,18 +92,18 @@ void (*Funciones[3]) ()={
 
  void PIT0_IRQHandler()
     {
-	uint8_t contador = 0;
+
  	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
- 	Funciones[contador];
+ 	Funciones[contador]();
  	if(1 == state)
  	{
  		contador++;
- 		contador = ( 3 >contador ) ? 0 : contador;
+ 		contador = ( 3 <= contador ) ? 0 : contador;
  	}
  	else if(0 == state)
  	{
  		contador--;
- 		contador = ( 0 == contador ) ? 3 : contador;
+ 		contador = ( 0xff == contador ) ? 2 : contador;
  	}
     }
 
@@ -159,7 +163,7 @@ void (*Funciones[3]) ()={
 
     	gpio_pin_config_t switch_config_gpio =
     	{
-    			kGPIO_DigitalInput, 1
+    		kGPIO_DigitalInput, 1
     	};
 
     	GPIO_PinInit(GPIOA, 4, &switch_config_gpio);
@@ -169,22 +173,21 @@ void (*Funciones[3]) ()={
 
     	pit_config_t pit_config =
     	{
-    			true
+    		true
     	};
 
     	PIT_Init(PIT, &pit_config);
 
     	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+    	EnableIRQ(PIT0_IRQn);
 
-    	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 2100);
+
+    	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 42000000);
 
     	PIT_StartTimer(PIT, kPIT_Chnl_0);
 
-        while(1)
-        {
-;
-        }
-
+        while(1) {  }
+        //Funciones[0]();
         return 0 ;
 }
 
