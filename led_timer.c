@@ -170,6 +170,7 @@ void (*Funciones[3]) ()={
     	GPIO_PinInit(GPIOC, 6, &switch_config_gpio);
 
     	NVIC_EnableIRQ(PORTA_IRQn);
+    	NVIC_EnableIRQ(PORTC_IRQn);
 
     	pit_config_t pit_config =
     	{
