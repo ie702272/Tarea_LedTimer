@@ -27,7 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
 /**
  * @file    led_timer.c
  * @brief   Application entry point.
@@ -48,164 +48,174 @@
 /*
  * @brief   Application entry point.
  */
-
-#define PIT_SOURCE_CLOCK CLOCK_GetBusClkFreq();
-
+#define limite 0xff
+#define limit 3
+#define segundo 42000000
 
 uint8_t state = 1;
 bool stop = true;
 uint8_t contador = 0;
 
 void verde();
-void azul ();
-void rojo ();
+void azul();
+void rojo();
 
-void (*Funciones[3]) ()={
-		&rojo,
-		&verde,
-		&azul
-};
+/*arreglo de funciones para prender LEDs*/
+void (*Funciones[3])()= { &rojo, &verde, &azul };
 
+/*!
+ 	 \brief	 This is the interrupt services routing (ISR) for
+ 	 the SW3
+ 	 Changes the direction of the loop for the colors
+ 	 \param[in]  void.
+ 	 \return void
+ */
+	void PORTA_IRQHandler()
+	{
+		PORT_ClearPinsInterruptFlags(PORTA, 1 << 4);
+		state = (0 == state) ? 1 : 0;
+	}
 
- void PORTA_IRQHandler()
-    {
-    	PORT_ClearPinsInterruptFlags(PORTA, 1<<4);
-    	state = ( 0 == state ) ? 1 : 0;
+	/*!
+	 	 \brief	 This is the interrupt services routing (ISR) for
+	 the SW2
+	 Disables and enables the PIT interruptions
+	 	 \param[in]  void.
+	 	 \return void
+	 */
+	void PORTC_IRQHandler()
+	{
+		PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);
+		if (false == stop)
+		{
+			EnableIRQ(PIT0_IRQn);
+			stop = !stop;
+		} else if (true == stop)
+		{
+			DisableIRQ(PIT0_IRQn);
+			stop = !stop;
+		}
 
-    }
+	}
 
- void PORTC_IRQHandler()
-     {
-     	PORT_ClearPinsInterruptFlags(PORTC, 1<<6);
-     	if(false == stop)
-     	{
-     		EnableIRQ(PIT0_IRQn);
-     		stop = !stop;
-     	}
-     	else if(true == stop)
-     	{
-     		DisableIRQ(PIT0_IRQn);
-     		stop = !stop;
-     	}
+	/*!
+	 	 \brief	 This is the interrupt services routing (ISR) of
+	 	 the PIT0
+	 	 Loop for both directions for LED lighting
+	 	 \param[in]  void.
+	 	 \return void
+	 */
+	void PIT0_IRQHandler()
+	{
+		PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
+		Funciones[contador]();
+		if (1 == state)
+		{
+			contador++;
+			contador = (limit <= contador) ? 0 : contador;
+		} else if (0 == state)
+		{
+			contador--;
+			contador = (limite == contador) ? 2 : contador;
+		}
+	}
 
-     }
+	int main(void)
+	{
 
- void PIT0_IRQHandler()
-    {
+		/* Init board hardware. */
+		BOARD_InitBootPins();
+		BOARD_InitBootClocks();
+		BOARD_InitBootPeripherals();
+		/* Init FSL debug console. */
+		BOARD_InitDebugConsole();
 
- 	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
- 	Funciones[contador]();
- 	if(1 == state)
- 	{
- 		contador++;
- 		contador = ( 3 <= contador ) ? 0 : contador;
- 	}
- 	else if(0 == state)
- 	{
- 		contador--;
- 		contador = ( 0xff == contador ) ? 2 : contador;
- 	}
-    }
+		CLOCK_EnableClock(kCLOCK_PortB);
+		CLOCK_EnableClock(kCLOCK_PortA);
+		CLOCK_EnableClock(kCLOCK_PortC);
+		CLOCK_EnableClock(kCLOCK_PortE);
 
-    int main(void)
-    {
+		port_pin_config_t config_led = { kPORT_PullDisable, kPORT_SlowSlewRate,
+				kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable,
+				kPORT_LowDriveStrength, kPORT_MuxAsGpio, kPORT_UnlockRegister, };
 
-    	/* Init board hardware. */
-    	BOARD_InitBootPins();
-    	BOARD_InitBootClocks();
-    	BOARD_InitBootPeripherals();
-    	/* Init FSL debug console. */
-    	BOARD_InitDebugConsole();
+		PORT_SetPinConfig(PORTB, 21, &config_led);  //Blue
+		PORT_SetPinConfig(PORTB, 22, &config_led);	//Red
+		PORT_SetPinConfig(PORTE, 26, &config_led);	//Green
 
-    	CLOCK_EnableClock(kCLOCK_PortB);
-    	CLOCK_EnableClock(kCLOCK_PortA);
-    	CLOCK_EnableClock(kCLOCK_PortC);
-    	CLOCK_EnableClock(kCLOCK_PortE);
+		port_pin_config_t config_switch = { kPORT_PullDisable,
+				kPORT_SlowSlewRate, kPORT_PassiveFilterDisable,
+				kPORT_OpenDrainDisable, kPORT_LowDriveStrength, kPORT_MuxAsGpio,
+				kPORT_UnlockRegister };
 
-    	port_pin_config_t config_led =
-    	{ kPORT_PullDisable,
-    	  kPORT_SlowSlewRate,
-		  kPORT_PassiveFilterDisable,
-		  kPORT_OpenDrainDisable,
-		  kPORT_LowDriveStrength,
-		  kPORT_MuxAsGpio,
-    	  kPORT_UnlockRegister,
-    	};
+		PORT_SetPinInterruptConfig(PORTA, 4, kPORT_InterruptFallingEdge);
+		PORT_SetPinConfig(PORTA, 4, &config_switch);
 
-    	PORT_SetPinConfig(PORTB, 21, &config_led);  //Blue
-    	PORT_SetPinConfig(PORTB, 22, &config_led);	//Red
-    	PORT_SetPinConfig(PORTE, 26, &config_led);	//Green
+		PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptFallingEdge);
+		PORT_SetPinConfig(PORTC, 6, &config_switch);
 
-    	port_pin_config_t config_switch =
-    	{ kPORT_PullDisable,
-    	  kPORT_SlowSlewRate,
-		  kPORT_PassiveFilterDisable,
-    	  kPORT_OpenDrainDisable,
-		  kPORT_LowDriveStrength,
-		  kPORT_MuxAsGpio,
-    	  kPORT_UnlockRegister
-    	};
+		gpio_pin_config_t led_config_gpio = { kGPIO_DigitalOutput, 1 };
 
-    	PORT_SetPinInterruptConfig(PORTA, 4, kPORT_InterruptFallingEdge);
-    	PORT_SetPinConfig(PORTA, 4, &config_switch);
+		GPIO_PinInit(GPIOB, 21, &led_config_gpio);
+		GPIO_PinInit(GPIOB, 22, &led_config_gpio);
+		GPIO_PinInit(GPIOE, 26, &led_config_gpio);
 
-    	PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptFallingEdge);
-    	PORT_SetPinConfig(PORTC, 6, &config_switch);
+		gpio_pin_config_t switch_config_gpio = { kGPIO_DigitalInput, 1 };
 
-    	gpio_pin_config_t led_config_gpio =
-    	{
-    		kGPIO_DigitalOutput, 1
-    	};
+		GPIO_PinInit(GPIOA, 4, &switch_config_gpio);
+		GPIO_PinInit(GPIOC, 6, &switch_config_gpio);
 
-    	GPIO_PinInit(GPIOB, 21, &led_config_gpio);
-    	GPIO_PinInit(GPIOB, 22, &led_config_gpio);
-    	GPIO_PinInit(GPIOE, 26, &led_config_gpio);
+		NVIC_EnableIRQ(PORTA_IRQn);
+		NVIC_EnableIRQ(PORTC_IRQn);
 
-    	gpio_pin_config_t switch_config_gpio =
-    	{
-    		kGPIO_DigitalInput, 1
-    	};
+		pit_config_t pit_config = {	true };
 
-    	GPIO_PinInit(GPIOA, 4, &switch_config_gpio);
-    	GPIO_PinInit(GPIOC, 6, &switch_config_gpio);
+		PIT_Init(PIT, &pit_config);
 
-    	NVIC_EnableIRQ(PORTA_IRQn);
-    	NVIC_EnableIRQ(PORTC_IRQn);
+		PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+		EnableIRQ(PIT0_IRQn);
 
-    	pit_config_t pit_config =
-    	{
-    		true
-    	};
+		PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, segundo);
 
-    	PIT_Init(PIT, &pit_config);
+		PIT_StartTimer(PIT, kPIT_Chnl_0);
 
-    	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
-    	EnableIRQ(PIT0_IRQn);
+		while (1) {	}
 
+		return 0;
+	}
 
-    	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 42000000);
+	/*!
+		 	 \brief	 This is the function for green LED color
+		 	 \param[in]  void.
+		 	 \return void
+		 */
+	void verde()
+	{
+		GPIO_WritePinOutput(GPIOE, 26, 0);
+		GPIO_WritePinOutput(GPIOB, 22, 1);
+		GPIO_WritePinOutput(GPIOB, 21, 1);
+	}
 
-    	PIT_StartTimer(PIT, kPIT_Chnl_0);
+	/*!
+		 	 \brief	 This is the function for red LED color
+		 	 \param[in]  void.
+		 	 \return void
+		 */
+	void rojo()
+	{
+		GPIO_WritePinOutput(GPIOE, 26, 1);
+		GPIO_WritePinOutput(GPIOB, 22, 0);
+		GPIO_WritePinOutput(GPIOB, 21, 1);
+	}
 
-        while(1) {  }
-        //Funciones[0]();
-        return 0 ;
-}
-
-    void verde(){
-    	GPIO_WritePinOutput(GPIOE,26,0);
-    	GPIO_WritePinOutput(GPIOB,22,1);
-    	GPIO_WritePinOutput(GPIOB,21,1);
-    }
-
-    void rojo(){
-        GPIO_WritePinOutput(GPIOE,26,1);
-        GPIO_WritePinOutput(GPIOB,22,0);
-        GPIO_WritePinOutput(GPIOB,21,1);
-        }
-
-    void azul(){
-        GPIO_WritePinOutput(GPIOE,26,1);
-        GPIO_WritePinOutput(GPIOB,22,1);
-        GPIO_WritePinOutput(GPIOB,21,0);
-        }
+	/*!
+		 	 \brief	 This is the function for blue LED color
+		 	 \param[in]  void.
+		 	 \return void
+		 */
+	void azul()
+	{
+		GPIO_WritePinOutput(GPIOE, 26, 1);
+		GPIO_WritePinOutput(GPIOB, 22, 1);
+		GPIO_WritePinOutput(GPIOB, 21, 0);
+	}
